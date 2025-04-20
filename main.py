@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
 from pydantic import BaseModel
 from contextlib import asynccontextmanager
 
@@ -36,7 +36,7 @@ async def create(db: DataManager, url_generator: Url, data: DataUser):
     return url
 
 @app.post("/add-text")
-async def add_text(request: Request, data: DataText):
+async def add_text_post(request: Request, data: DataText):
     db = request.app.state.db
     url_generator = request.app.state.url_generator
 
@@ -48,6 +48,25 @@ async def add_text(request: Request, data: DataText):
     url = await create(db, url_generator, user_data)
     return {"url": url}
 
+
+@app.get("/add-text")
+async def add_text_get():
+    return FileResponse("add-text/index.html")
+
+@app.get("/add-text/{file_name}")
+def get_add_text_files(file_name: str):
+    return FileResponse(f"add-text/{file_name}")
+
+@app.get("/mytext")
+async def my_text(request:Request):
+    return await request.app.state.db.read_from_useragent(request.headers.get("user-agent"))
+
+
+@app.get("/")
+async def index(request: Request):
+    return await request.app.state.db.read_all()
+
+
 @app.get("/{api}")
 async def get_text(api: str, request: Request):
     db = request.app.state.db
@@ -55,13 +74,3 @@ async def get_text(api: str, request: Request):
     if result:
         return {"text": result}
     return JSONResponse(status_code=404, content={"message": "URL не существует"})
-
-@app.get("/")
-async def index(request: Request):
-    return {
-        "method": request.method,
-        "url": str(request.url),
-        "client_ip": request.client.host,
-        "headers": dict(request.headers),
-        "query_params": dict(request.query_params),
-    }
